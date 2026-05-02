@@ -1223,219 +1223,203 @@ function printPDF() {
   document.getElementById('print-modal').style.display = 'flex';
 }
 
-function downloadPDF() {
-  // 選択値取得ヘルパー
-  function getChoice(group, map) {
-    const key = choices['c-' + group];
-    return map[key] || '未選択';
-  }
-  function getMulti(prefix, keys) {
-    return keys.map(k => {
-      const el = document.getElementById(prefix + k);
-      return (el && el.classList.contains('selected')) ? el.textContent.trim() : null;
-    }).filter(Boolean).join('、') || '未選択';
-  }
-  function escapeHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function valEsc(id) {
-    const t = v(id);
-    return t ? escapeHtml(t).replace(/\n/g,'<br>') : '<span style="color:#bbb;">（未記入）</span>';
-  }
-
-  const today = new Date().toLocaleDateString('ja-JP');
-
-  // PDF用HTMLテンプレート
-  const html = `
-<div class="pdf-page" style="font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif;color:#1A1F1A;font-size:11pt;line-height:1.7;">
-
-  <div style="border-bottom:2px solid #1A1F1A;padding-bottom:10px;margin-bottom:20px;">
-    <div style="font-size:9pt;color:#888;letter-spacing:0.2em;margin-bottom:4px;">SELF ANALYSIS SHEET</div>
-    <h1 style="font-size:18pt;font-weight:700;margin:0;">SNS発信 棚卸しシート</h1>
-    <div style="font-size:9pt;color:#666;margin-top:4px;">記入日：${today}</div>
-  </div>
-
-  ${sec('① あなたのスペック', 'YOUR SPECS', [
-    ['年齢・性別', valEsc('f-age')],
-    ['職業・肩書き', valEsc('f-job')],
-    ['経歴・経験', valEsc('f-career')],
-    ['コンプレックス・負の経験', valEsc('f-complex')],
-    ['どう乗り越えた？', valEsc('f-overcome')],
-  ])}
-
-  ${sec('② 人生ジャンル別の経験・悩み・解決', 'LIFE EXPERIENCE', [], `
-    ${lifeBlock('💴 お金・収入・借金・節約', 'f-lg-money')}
-    ${lifeBlock('💗 恋愛・結婚・パートナー', 'f-lg-love')}
-    ${lifeBlock('💼 仕事・キャリア・転職', 'f-lg-work')}
-    ${lifeBlock('👥 人間関係・友人・孤独', 'f-lg-rel')}
-    ${lifeBlock('🏃 健康・外見・ダイエット', 'f-lg-health')}
-    ${lifeBlock('🏠 家族・育児・親子・介護', 'f-lg-fam')}
-    ${lifeBlock('🧠 メンタル・自己成長・価値観', 'f-lg-men')}
-    <div style="margin-top:14px;padding-top:10px;border-top:1px dashed #ccc;">
-      <div style="font-size:9pt;color:#666;margin-bottom:3px;font-weight:700;">人生のターニングポイント</div>
-      <div style="font-size:10pt;">${valEsc('f-lg-turning')}</div>
-    </div>
-  `)}
-
-  ${sec('③ 発信ジャンル・悩みの深さ', 'YOUR NICHE', [
-    ['発信したいジャンル', valEsc('f-genre')],
-    ['そのジャンルを選ぶ理由', valEsc('f-genre-reason')],
-    ['実際に試した・調べたこと', valEsc('f-experience')],
-    ['一番得意なこと', valEsc('f-strength')],
-    ['ライバルとの差別化', valEsc('f-diff')],
-  ])}
-
-  ${sec('④ ターゲット像', 'YOUR TARGET', [
-    ['ターゲット属性', valEsc('f-target')],
-    ['かつて同じ状況だったか', escapeHtml(getChoice('same', {'yes':'自分も同じ経験あり','no':'周りに多い','both':'両方'}))],
-    ['ターゲットの悩み・不安', valEsc('f-target-pain')],
-    ['ターゲットが失敗してきたこと', valEsc('f-target-fail')],
-    ['ターゲットの理想の状態', valEsc('f-target-dream')],
-  ])}
-
-  ${sec('⑤ 収益化の方向性', 'MONETIZATION', [
-    ['収益化の方法', escapeHtml(getMulti('c-mon-', ['affili','own','digital','line','collab','undecided']))],
-    ['月収目標', escapeHtml(getChoice('goal', {'1':'月1〜3万','2':'月3〜10万','3':'月10〜30万','4':'月30万以上'}))],
-    ['月収目標の理由・使い道', valEsc('f-goal-reason')],
-    ['LINE誘導', escapeHtml(getChoice('line', {'yes':'したい','no':'今は考えていない','idk':'わからない'}))],
-    ['アフィリの商品イメージ', valEsc('f-affili')],
-    ['自社商品のイメージ', valEsc('f-own-product')],
-  ])}
-
-  ${sec('⑥ SNS現状', 'CURRENT STATUS', [
-    ['フォロワー数', escapeHtml(getChoice('fw', {'0':'まだ0','1':'〜100人','2':'100〜500人','3':'500〜1,000人','4':'1,000〜3,000人','5':'3,000人〜'}))],
-    ['投稿経験', escapeHtml(getChoice('exp', {'none':'ほぼ未経験','few':'少し投稿経験あり','cont':'継続投稿中'}))],
-    ['週の投稿時間', escapeHtml(getChoice('time', {'1':'週3時間未満','2':'週3〜7時間','3':'週7〜15時間','4':'週15時間以上'}))],
-    ['うまくいかなかったこと', valEsc('f-sns-fail')],
-    ['今一番不安なこと', valEsc('f-anxiety')],
-    ['その他・伝えておきたいこと', valEsc('f-other')],
-  ])}
-
-</div>
-`;
-
-  function sec(jp, en, fields, customBody) {
-    let body = '';
-    if (customBody) {
-      body = customBody;
-    } else {
-      body = fields.map(([label, value]) => `
-        <div style="margin-bottom:11px;">
-          <div style="font-size:9pt;color:#666;margin-bottom:2px;font-weight:700;">${label}</div>
-          <div style="font-size:10pt;">${value}</div>
-        </div>
-      `).join('');
-    }
-    return `
-      <div style="margin-bottom:22px;page-break-inside:avoid;">
-        <div style="font-size:8pt;color:#999;letter-spacing:0.25em;margin-bottom:2px;">${en}</div>
-        <h2 style="font-size:13pt;font-weight:700;margin:0 0 10px;border-bottom:1px solid #ddd;padding-bottom:5px;">${jp}</h2>
-        ${body}
-      </div>
-    `;
-  }
-
-  function lifeBlock(title, prefix) {
-    return `
-      <div style="margin-bottom:14px;padding:10px 12px;background:#FAFAF8;border-left:2px solid #B0BCB0;page-break-inside:avoid;">
-        <div style="font-size:10pt;font-weight:700;margin-bottom:6px;">${title}</div>
-        <div style="margin-bottom:6px;">
-          <span style="font-size:9pt;color:#666;font-weight:700;">悩み：</span>
-          <span style="font-size:10pt;">${valEsc(prefix + '-pain')}</span>
-        </div>
-        <div style="margin-bottom:6px;">
-          <span style="font-size:9pt;color:#666;font-weight:700;">解決・現状：</span>
-          <span style="font-size:10pt;">${valEsc(prefix + '-solve')}</span>
-        </div>
-        <div>
-          <span style="font-size:9pt;color:#666;font-weight:700;">気づき：</span>
-          <span style="font-size:10pt;">${valEsc(prefix + '-insight')}</span>
-        </div>
-      </div>
-    `;
-  }
-
-  // 完成版HTMLを構築（A4サイズ・印刷専用CSS付き）
-  const fullHtml = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>SNS棚卸しシート</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
-    color: #1A1F1A;
-    background: #f5f5f5;
-    padding: 20px;
-  }
-  .pdf-page {
-    background: #fff;
-    max-width: 210mm;
-    margin: 0 auto 20px;
-    padding: 18mm;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }
-  .info-bar {
-    background: #1A1F1A;
-    color: #fff;
-    padding: 14px 20px;
-    max-width: 210mm;
-    margin: 0 auto 16px;
-    text-align: center;
-    font-size: 13px;
-    line-height: 1.7;
-  }
-  .info-bar strong { font-size: 14px; display: block; margin-bottom: 4px; }
-  .info-bar button {
-    background: #fff;
-    color: #1A1F1A;
-    border: none;
-    padding: 8px 18px;
-    margin-top: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  @media print {
-    body { background: #fff; padding: 0; }
-    .pdf-page { box-shadow: none; margin: 0; padding: 12mm; max-width: 100%; }
-    .info-bar { display: none; }
-    @page { size: A4; margin: 0; }
-  }
-</style>
-</head>
-<body>
-
-<div class="info-bar">
-  <strong>📄 PDFとして保存する手順</strong>
-  下のボタン → 印刷ダイアログ → 「PDFとして保存」を選択<br>
-  保存したPDFをスレッズのDMで送ってください
-  <br>
-  <button onclick="window.print()">📄 PDFとして保存する</button>
-</div>
-
-${html}
-
-<scr` + `ipt>
-  // 自動で印刷ダイアログを開く
-  window.addEventListener('load', () => {
-    setTimeout(() => window.print(), 800);
+// pdfmakeとフォントを動的ロード（一度だけ）
+let pdfMakeLoaded = false;
+async function loadPdfMake() {
+  if (pdfMakeLoaded) return;
+  // pdfmakeコアスクリプト
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
   });
-</scr` + `ipt>
-</body>
-</html>`;
+  // 日本語フォント（IPA Gothic）を同じディレクトリから取得
+  // ipag.ttf を tanaoroshi_sheet.html と同じディレクトリに配置すること
+  const fontUrl = './ipag.ttf';
 
-  // 新しいウィンドウで開く
-  const pdfWindow = window.open('', '_blank');
-  if (!pdfWindow) {
-    alert('ポップアップがブロックされました。ポップアップを許可してから再度お試しください。');
-    return;
+  const res = await fetch(fontUrl);
+  if (!res.ok) throw new Error('フォントファイル ipag.ttf が見つかりません (HTTP ' + res.status + ')。HTMLと同じディレクトリに ipag.ttf を配置してください。');
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
   }
-  pdfWindow.document.open();
-  pdfWindow.document.write(fullHtml);
-  pdfWindow.document.close();
+  const base64 = btoa(binary);
+
+  window.pdfMake.vfs = { 'IPAexGothic.ttf': base64 };
+  window.pdfMake.fonts = {
+    IPAexGothic: {
+      normal: 'IPAexGothic.ttf',
+      bold: 'IPAexGothic.ttf',
+      italics: 'IPAexGothic.ttf',
+      bolditalics: 'IPAexGothic.ttf'
+    }
+  };
+  pdfMakeLoaded = true;
+}
+
+async function downloadPDF() {
+  // ローディング表示
+  let loader = document.getElementById('pdf-loading');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'pdf-loading';
+    loader.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,0.95);z-index:99998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;';
+    loader.innerHTML = '<div style="width:36px;height:36px;border:3px solid #ddd;border-top-color:#1A1F1A;border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="font-family:\'Shippori Mincho\',serif;font-size:15px;color:#1A1F1A;">PDFを生成しています...</p><p style="font-size:11px;color:#888;">初回は数秒かかります</p><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+    document.body.appendChild(loader);
+  }
+  loader.style.display = 'flex';
+
+  try {
+    await loadPdfMake();
+
+    // 値取得ヘルパー
+    const valOrEmpty = (id) => v(id) || '（未記入）';
+    const getChoice = (group, map) => {
+      const key = choices['c-' + group];
+      return map[key] || '未選択';
+    };
+    const getMulti = (prefix, keys) => {
+      return keys.map(k => {
+        const el = document.getElementById(prefix + k);
+        return (el && el.classList.contains('selected')) ? el.textContent.trim() : null;
+      }).filter(Boolean).join('、') || '未選択';
+    };
+
+    // フィールド項目（label + value）
+    const field = (label, value) => [
+      { text: label, fontSize: 9, color: '#666', bold: true, margin: [0, 0, 0, 1] },
+      { text: value, fontSize: 10, color: '#1A1F1A', margin: [0, 0, 0, 8] }
+    ];
+
+    // セクション見出し
+    const sectionHeader = (en, jp) => [
+      { text: en, fontSize: 8, color: '#999', characterSpacing: 1.5, margin: [0, 16, 0, 2] },
+      {
+        text: jp,
+        fontSize: 13,
+        bold: true,
+        color: '#1A1F1A',
+        margin: [0, 0, 0, 4]
+      },
+      {
+        canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#ddd' }],
+        margin: [0, 0, 0, 10]
+      }
+    ];
+
+    // 人生ジャンルブロック
+    const lifeBlock = (title, prefix) => ({
+      table: {
+        widths: ['*'],
+        body: [[{
+          stack: [
+            { text: title, fontSize: 11, bold: true, margin: [0, 0, 0, 6] },
+            { text: [{ text: '悩み：', fontSize: 9, color: '#666', bold: true }, { text: valOrEmpty(prefix + '-pain'), fontSize: 10 }], margin: [0, 0, 0, 4] },
+            { text: [{ text: '解決・現状：', fontSize: 9, color: '#666', bold: true }, { text: valOrEmpty(prefix + '-solve'), fontSize: 10 }], margin: [0, 0, 0, 4] },
+            { text: [{ text: '気づき：', fontSize: 9, color: '#666', bold: true }, { text: valOrEmpty(prefix + '-insight'), fontSize: 10 }] }
+          ],
+          fillColor: '#FAFAF8',
+          margin: [10, 8, 10, 8],
+          border: [false, false, false, false]
+        }]]
+      },
+      layout: {
+        defaultBorder: false,
+        paddingLeft: () => 0,
+        paddingRight: () => 0,
+        paddingTop: () => 0,
+        paddingBottom: () => 0
+      },
+      margin: [0, 0, 0, 8]
+    });
+
+    // ドキュメント定義
+    const docDefinition = {
+      pageSize: 'A4',
+      pageMargins: [40, 40, 40, 40],
+      defaultStyle: { font: 'IPAexGothic', fontSize: 10, color: '#1A1F1A', lineHeight: 1.5 },
+      content: [
+        // ヘッダー
+        { text: 'SELF ANALYSIS SHEET', fontSize: 9, color: '#888', characterSpacing: 2, margin: [0, 0, 0, 4] },
+        { text: 'SNS発信 棚卸しシート', fontSize: 18, bold: true, color: '#1A1F1A' },
+        { text: '記入日：' + new Date().toLocaleDateString('ja-JP'), fontSize: 9, color: '#666', margin: [0, 4, 0, 8] },
+        {
+          canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1.5, lineColor: '#1A1F1A' }],
+          margin: [0, 0, 0, 16]
+        },
+
+        // ① スペック
+        ...sectionHeader('① YOUR SPECS', '① あなたのスペック'),
+        ...field('年齢・性別', valOrEmpty('f-age')),
+        ...field('職業・肩書き', valOrEmpty('f-job')),
+        ...field('経歴・経験', valOrEmpty('f-career')),
+        ...field('コンプレックス・負の経験', valOrEmpty('f-complex')),
+        ...field('どう乗り越えた？', valOrEmpty('f-overcome')),
+
+        // ② 人生ジャンル別
+        ...sectionHeader('② LIFE EXPERIENCE', '② 人生ジャンル別の経験・悩み・解決'),
+        lifeBlock('💴 お金・収入・借金・節約', 'f-lg-money'),
+        lifeBlock('💗 恋愛・結婚・パートナー', 'f-lg-love'),
+        lifeBlock('💼 仕事・キャリア・転職', 'f-lg-work'),
+        lifeBlock('👥 人間関係・友人・孤独', 'f-lg-rel'),
+        lifeBlock('🏃 健康・外見・ダイエット', 'f-lg-health'),
+        lifeBlock('🏠 家族・育児・親子・介護', 'f-lg-fam'),
+        lifeBlock('🧠 メンタル・自己成長・価値観', 'f-lg-men'),
+        ...field('人生のターニングポイント', valOrEmpty('f-lg-turning')),
+
+        // ③ 発信ジャンル
+        ...sectionHeader('③ YOUR NICHE', '③ 発信ジャンル・悩みの深さ'),
+        ...field('発信したいジャンル', valOrEmpty('f-genre')),
+        ...field('そのジャンルを選ぶ理由', valOrEmpty('f-genre-reason')),
+        ...field('実際に試した・調べたこと', valOrEmpty('f-experience')),
+        ...field('一番得意なこと', valOrEmpty('f-strength')),
+        ...field('ライバルとの差別化', valOrEmpty('f-diff')),
+
+        // ④ ターゲット
+        ...sectionHeader('④ YOUR TARGET', '④ ターゲット像'),
+        ...field('ターゲット属性', valOrEmpty('f-target')),
+        ...field('かつて同じ状況だったか', getChoice('same', {'yes':'自分も同じ経験あり','no':'周りに多い','both':'両方'})),
+        ...field('ターゲットの悩み・不安', valOrEmpty('f-target-pain')),
+        ...field('ターゲットが失敗してきたこと', valOrEmpty('f-target-fail')),
+        ...field('ターゲットの理想の状態', valOrEmpty('f-target-dream')),
+
+        // ⑤ 収益化
+        ...sectionHeader('⑤ MONETIZATION', '⑤ 収益化の方向性'),
+        ...field('収益化の方法', getMulti('c-mon-', ['affili','own','digital','line','collab','undecided'])),
+        ...field('月収目標', getChoice('goal', {'1':'月1〜3万','2':'月3〜10万','3':'月10〜30万','4':'月30万以上'})),
+        ...field('月収目標の理由・使い道', valOrEmpty('f-goal-reason')),
+        ...field('LINE誘導', getChoice('line', {'yes':'したい','no':'今は考えていない','idk':'わからない'})),
+        ...field('アフィリの商品イメージ', valOrEmpty('f-affili')),
+        ...field('自社商品のイメージ', valOrEmpty('f-own-product')),
+
+        // ⑥ SNS現状
+        ...sectionHeader('⑥ CURRENT STATUS', '⑥ SNS現状'),
+        ...field('フォロワー数', getChoice('fw', {'0':'まだ0','1':'〜100人','2':'100〜500人','3':'500〜1,000人','4':'1,000〜3,000人','5':'3,000人〜'})),
+        ...field('投稿経験', getChoice('exp', {'none':'ほぼ未経験','few':'少し投稿経験あり','cont':'継続投稿中'})),
+        ...field('週の投稿時間', getChoice('time', {'1':'週3時間未満','2':'週3〜7時間','3':'週7〜15時間','4':'週15時間以上'})),
+        ...field('うまくいかなかったこと', valOrEmpty('f-sns-fail')),
+        ...field('今一番不安なこと', valOrEmpty('f-anxiety')),
+        ...field('その他・伝えておきたいこと', valOrEmpty('f-other'))
+      ]
+    };
+
+    // PDFをダウンロード
+    window.pdfMake.createPdf(docDefinition).download('SNS棚卸しシート.pdf', () => {
+      const l = document.getElementById('pdf-loading');
+      if (l) l.style.display = 'none';
+    });
+
+  } catch (err) {
+    console.error('PDF生成エラー:', err);
+    const l = document.getElementById('pdf-loading');
+    if (l) l.style.display = 'none';
+    alert('PDF生成に失敗しました。インターネット接続を確認してもう一度お試しください。\n\nエラー詳細: ' + err.message);
+  }
 }
 
 </script>
