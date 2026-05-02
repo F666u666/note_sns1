@@ -1153,7 +1153,6 @@ textarea::placeholder, input::placeholder {
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // ─── アコーディオン ───
 function toggleLg(id) {
@@ -1225,17 +1224,6 @@ function printPDF() {
 }
 
 function downloadPDF() {
-  // ローディング表示
-  let loader = document.getElementById('pdf-loading');
-  if (!loader) {
-    loader = document.createElement('div');
-    loader.id = 'pdf-loading';
-    loader.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:99998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;';
-    loader.innerHTML = '<div style="width:36px;height:36px;border:3px solid #ddd;border-top-color:#1A1F1A;border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="font-family:\'Shippori Mincho\',serif;font-size:15px;color:#1A1F1A;">PDFを生成しています...</p><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
-    document.body.appendChild(loader);
-  }
-  loader.style.display = 'flex';
-
   // 選択値取得ヘルパー
   function getChoice(group, map) {
     const key = choices['c-' + group];
@@ -1247,12 +1235,8 @@ function downloadPDF() {
       return (el && el.classList.contains('selected')) ? el.textContent.trim() : null;
     }).filter(Boolean).join('、') || '未選択';
   }
-  function val(id) {
-    const t = v(id);
-    return t || '<span style="color:#bbb;">（未記入）</span>';
-  }
   function escapeHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
   function valEsc(id) {
     const t = v(id);
@@ -1263,7 +1247,7 @@ function downloadPDF() {
 
   // PDF用HTMLテンプレート
   const html = `
-<div style="font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif;color:#1A1F1A;padding:24px 28px;font-size:11pt;line-height:1.7;background:#fff;width:170mm;">
+<div class="pdf-page" style="font-family:'Hiragino Sans','Yu Gothic','Noto Sans JP',sans-serif;color:#1A1F1A;font-size:11pt;line-height:1.7;">
 
   <div style="border-bottom:2px solid #1A1F1A;padding-bottom:10px;margin-bottom:20px;">
     <div style="font-size:9pt;color:#888;letter-spacing:0.2em;margin-bottom:4px;">SELF ANALYSIS SHEET</div>
@@ -1371,49 +1355,87 @@ function downloadPDF() {
     `;
   }
 
-  // 一時要素を画面内に配置（不透明・表示状態でレンダリング）
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'absolute';
-  wrapper.style.left = '0';
-  wrapper.style.top = '0';
-  wrapper.style.width = '794px'; // A4 幅 (96dpi)
-  wrapper.style.background = '#ffffff';
-  wrapper.style.zIndex = '99999';
-  wrapper.innerHTML = html;
-  document.body.appendChild(wrapper);
+  // 完成版HTMLを構築（A4サイズ・印刷専用CSS付き）
+  const fullHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>SNS棚卸しシート</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', 'Noto Sans JP', sans-serif;
+    color: #1A1F1A;
+    background: #f5f5f5;
+    padding: 20px;
+  }
+  .pdf-page {
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto 20px;
+    padding: 18mm;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .info-bar {
+    background: #1A1F1A;
+    color: #fff;
+    padding: 14px 20px;
+    max-width: 210mm;
+    margin: 0 auto 16px;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .info-bar strong { font-size: 14px; display: block; margin-bottom: 4px; }
+  .info-bar button {
+    background: #fff;
+    color: #1A1F1A;
+    border: none;
+    padding: 8px 18px;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .pdf-page { box-shadow: none; margin: 0; padding: 12mm; max-width: 100%; }
+    .info-bar { display: none; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
 
-  const target = wrapper.firstElementChild;
-  // PDF生成中の見た目用
-  target.style.background = '#ffffff';
+<div class="info-bar">
+  <strong>📄 PDFとして保存する手順</strong>
+  下のボタン → 印刷ダイアログ → 「PDFとして保存」を選択<br>
+  保存したPDFをスレッズのDMで送ってください
+  <br>
+  <button onclick="window.print()">📄 PDFとして保存する</button>
+</div>
 
-  const opt = {
-    margin: [10, 10, 10, 10],
-    filename: 'SNS棚卸しシート.pdf',
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] }
-  };
+${html}
 
-  // 少し待ってからレンダリング（フォント読み込み待ち）
-  setTimeout(() => {
-    html2pdf().set(opt).from(target).save().then(() => {
-      document.body.removeChild(wrapper);
-      const l = document.getElementById('pdf-loading');
-      if (l) l.style.display = 'none';
-    }).catch(err => {
-      console.error(err);
-      document.body.removeChild(wrapper);
-      const l = document.getElementById('pdf-loading');
-      if (l) l.style.display = 'none';
-      alert('PDF生成に失敗しました。もう一度お試しください。');
-    });
-  }, 300);
+<scr` + `ipt>
+  // 自動で印刷ダイアログを開く
+  window.addEventListener('load', () => {
+    setTimeout(() => window.print(), 800);
+  });
+</scr` + `ipt>
+</body>
+</html>`;
+
+  // 新しいウィンドウで開く
+  const pdfWindow = window.open('', '_blank');
+  if (!pdfWindow) {
+    alert('ポップアップがブロックされました。ポップアップを許可してから再度お試しください。');
+    return;
+  }
+  pdfWindow.document.open();
+  pdfWindow.document.write(fullHtml);
+  pdfWindow.document.close();
 }
 
 </script>
